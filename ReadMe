@@ -1,0 +1,24 @@
+# Enbridge-Competition
+Focus Areas (For Inspiration) 
+Teams are free to pursue any innovative direction, but here are three inspiring focus areas aligned with common wind turbine challenges and the dataset's strengths: 
+1. Gearbox & Bearing Health Monitoring 
+Objective: Detects precursors to gearbox bearing damage or related mechanical faults, a frequent and costly issue in turbines.
+Key Questions: 
+a. What sensor patterns (e.g., oil temperatures, vibrations) precede labeled gearbox events, and how early can deviations be flagged? b. How do normal vs. anomalous periods differ across turbines/farms, and what thresholds could trigger alerts? 
+c. How might explainable models reduce unnecessary maintenance while catching issues months ahead? 
+
+2. Thermal & Electrical System Anomalies 
+Objective: Identify early signs of high temperatures (e.g., transformer cells, generators) or electrical irregularities to prevent overheating failures. 
+Key Questions: 
+a. Which temperature/pressure features show the strongest signals before fault events? 
+b. How can time-series visualizations or autoencoder reconstructions highlight subtle deviations in multi-sensor data? 
+c. What practical monitoring strategies could operators adopt based on these patterns? 
+
+
+3. Multi-Farm & Cross-Turbine Insights for Fleet-Wide Reliability 
+Objective: Compare behaviors across onshore (Farm A) and offshore (Farms B/C) turbines to uncover generalizable anomaly patterns and farm-specific risks. 
+Key Questions: 
+a. Do fault precursors vary between onshore and offshore environments, and how can models account for this?
+b. How might focusing on a subset of turbines enable scalable anomaly detection for an entire wind farm? 
+c. What role could interactive dashboards or advanced metrics (e.g., CARE score) play in communicating fleet-level risks to 
+decision-makers? 

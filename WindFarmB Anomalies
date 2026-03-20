@@ -1,0 +1,291 @@
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from pathlib import Path
+from sklearn.ensemble import IsolationForest
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import warnings
+warnings.filterwarnings('ignore')
+
+# Set up plotting style
+plt.style.use('seaborn-v0_8-darkgrid')
+sns.set_palette("husl")
+
+# Paths
+FARM_PATH = Path(r"C:\Users\anees\Downloads\WindFarmB")
+OUTPUT_DIR = Path(r"C:\Users\anees\Downloads\ENBRIDGE X DSMLC")
+
+def load_data(file_path, nrows=None):
+    """Load a single CSV file with proper handling"""
+    try:
+        # Read with proper separator and data types
+        df = pd.read_csv(file_path, sep=';', engine='python', nrows=nrows)
+        
+        # Handle first column if it's datetime
+        first_col = df.columns[0]
+        if first_col and df[first_col].dtype == 'object':
+            try:
+                # Try to parse as datetime
+                df[first_col] = pd.to_datetime(df[first_col], errors='ignore')
+                # Set as index if it's a datetime column
+                if pd.api.types.is_datetime64_any_dtype(df[first_col]):
+                    df.set_index(first_col, inplace=True)
+            except:
+                pass
+        
+        # Convert all remaining columns to numeric, coercing errors to NaN
+        numeric_cols = df.select_dtypes(include=['object']).columns
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+        
+        # Convert to float32 to save memory
+        float_cols = df.select_dtypes(include=[np.number]).columns
+        for col in float_cols:
+            df[col] = df[col].astype(np.float32)
+        
+        # Drop columns that are entirely NaN
+        df = df.dropna(axis=1, how='all')
+        
+        # Drop rows that are entirely NaN
+        df = df.dropna(how='all')
+        
+        return df
+    except Exception as e:
+        print(f"  [ERR] Failed to load: {str(e)[:100]}")
+        return None
+
+def detect_anomalies_isolation_forest(X_scaled):
+    """Detect anomalies using Isolation Forest"""
+    iso_forest = IsolationForest(contamination=0.05, random_state=42, n_jobs=-1)
+    anomalies = iso_forest.fit_predict(X_scaled)
+    return anomalies == -1
+
+def detect_anomalies_zscore(X, threshold=3):
+    """Detect anomalies using Z-score method"""
+    z_scores = np.abs((X - X.mean()) / X.std())
+    return (z_scores > threshold).any(axis=1)
+
+def analyze_turbine(turbine_name, df):
+    """Analyze a single turbine for anomalies"""
+    try:
+        # Get numeric columns only
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) == 0:
+            print(f"    [SKIP] {turbine_name}: No numeric columns")
+            return None
+        
+        X = df[numeric_cols].copy()
+        
+        # Fill NaN values
+        X = X.fillna(X.mean())
+        
+        # Handle case where all values are NaN
+        if X.isna().all().any():
+            print(f"    [SKIP] {turbine_name}: All NaN columns")
+            return None
+        
+        # Standardize features
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        
+        # Apply dimensionality reduction if needed (too many features)
+        if X_scaled.shape[1] > 100:
+            pca = PCA(n_components=min(50, X_scaled.shape[1]//2))
+            X_scaled = pca.fit_transform(X_scaled)
+        
+        # Detect anomalies
+        anomalies_if = detect_anomalies_isolation_forest(X_scaled)
+        anomalies_z = detect_anomalies_zscore(X)
+        
+        num_anomalies_if = anomalies_if.sum()
+        num_anomalies_z = anomalies_z.sum()
+        
+        result = {
+            'turbine': turbine_name,
+            'total_records': len(df),
+            'num_features': len(numeric_cols),
+            'iso_forest_anomalies': num_anomalies_if,
+            'z_score_anomalies': num_anomalies_z,
+            'iso_forest_pct': (num_anomalies_if / len(df) * 100),
+            'z_score_pct': (num_anomalies_z / len(df) * 100),
+            'df': df,
+            'anomalies_if': anomalies_if,
+            'anomalies_z': anomalies_z,
+            'numeric_cols': numeric_cols.tolist()
+        }
+        
+        print(f"    ✓ {turbine_name}: {num_anomalies_if} IF anomalies, {num_anomalies_z} Z-score anomalies")
+        return result
+    except Exception as e:
+        print(f"    [ERR] {turbine_name}: {str(e)[:80]}")
+        return None
+
+def main():
+    print("="*70)
+    print("WINDFARMB ANOMALY DETECTION ANALYSIS")
+    print("="*70)
+    
+    # Load all WindFarmB files
+    if not FARM_PATH.exists():
+        print(f"[ERR] Path not found: {FARM_PATH}")
+        return
+    
+    csv_files = sorted(FARM_PATH.glob('*.csv'))
+    print(f"\n[INFO] Found {len(csv_files)} CSV files in WindFarmB")
+    
+    # Load data
+    print("\n[STEP 1] Loading data...")
+    turbine_data = {}
+    for file_path in csv_files:
+        turbine_name = file_path.stem
+        print(f"  Loading {turbine_name}...", end=' ')
+        df = load_data(file_path, nrows=1000)
+        if df is not None and len(df) > 0:
+            turbine_data[turbine_name] = df
+            print(f"✓ ({df.shape[0]} rows × {df.shape[1]} cols)")
+        else:
+            print("✗ (empty or error)")
+    
+    print(f"\n[STEP 2] Analyzing anomalies in {len(turbine_data)} turbines...")
+    
+    # Analyze anomalies
+    results = []
+    for idx, (turbine_name, df) in enumerate(turbine_data.items(), 1):
+        print(f"  [{idx}/{len(turbine_data)}]", end=' ')
+        result = analyze_turbine(turbine_name, df)
+        if result:
+            results.append(result)
+    
+    if not results:
+        print("[ERR] No results generated")
+        return
+    
+    # Create summary dataframe
+    print("\n[STEP 3] Creating summary...")
+    summary_df = pd.DataFrame([
+        {
+            'Turbine': r['turbine'],
+            'Total_Records': r['total_records'],
+            'Num_Features': r['num_features'],
+            'IF_Anomalies': r['iso_forest_anomalies'],
+            'Z_Score_Anomalies': r['z_score_anomalies'],
+            'IF_Pct': round(r['iso_forest_pct'], 2),
+            'Z_Score_Pct': round(r['z_score_pct'], 2)
+        }
+        for r in results
+    ])
+    
+    # Print summary table
+    print("\n" + "="*70)
+    print("ANOMALY DETECTION SUMMARY - WindFarmB")
+    print("="*70)
+    print(summary_df.to_string(index=False))
+    print("="*70)
+    print(f"Total turbines analyzed: {len(results)}")
+    print(f"Total anomalies (IF): {summary_df['IF_Anomalies'].sum()}")
+    print(f"Total anomalies (Z-Score): {summary_df['Z_Score_Anomalies'].sum()}")
+    print("="*70)
+    
+    # Save summary
+    summary_df.to_csv(OUTPUT_DIR / 'WindFarmB_anomaly_summary.csv', index=False)
+    print(f"\n✓ Saved: WindFarmB_anomaly_summary.csv")
+    
+    # Visualization 1: Anomaly counts
+    print("\n[STEP 4] Creating visualizations...")
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+    
+    # Plot 1: Anomaly counts (IF)
+    ax = axes[0, 0]
+    sorted_df = summary_df.sort_values('IF_Anomalies', ascending=False)
+    colors = ['red' if x > 0 else 'green' for x in sorted_df['IF_Anomalies']]
+    ax.barh(sorted_df['Turbine'], sorted_df['IF_Anomalies'], color=colors, alpha=0.7)
+    ax.set_xlabel('Number of Anomalies', fontweight='bold')
+    ax.set_title('Anomalies by Turbine (Isolation Forest)', fontweight='bold', fontsize=12)
+    ax.grid(axis='x', alpha=0.3)
+    
+    # Plot 2: Anomaly percentage
+    ax = axes[0, 1]
+    sorted_pct = summary_df.sort_values('IF_Pct', ascending=False)
+    colors = ['red' if x > 0 else 'green' for x in sorted_pct['IF_Pct']]
+    ax.barh(sorted_pct['Turbine'], sorted_pct['IF_Pct'], color=colors, alpha=0.7)
+    ax.set_xlabel('Percentage Anomalous (%)', fontweight='bold')
+    ax.set_title('Anomaly Percentage by Turbine', fontweight='bold', fontsize=12)
+    ax.grid(axis='x', alpha=0.3)
+    
+    # Plot 3: Comparison of methods
+    ax = axes[1, 0]
+    x_pos = np.arange(len(summary_df))
+    width = 0.35
+    ax.bar(x_pos - width/2, summary_df['IF_Anomalies'], width, label='Isolation Forest', alpha=0.8)
+    ax.bar(x_pos + width/2, summary_df['Z_Score_Anomalies'], width, label='Z-Score', alpha=0.8)
+    ax.set_xlabel('Turbine', fontweight='bold')
+    ax.set_ylabel('Number of Anomalies', fontweight='bold')
+    ax.set_title('Detection Method Comparison', fontweight='bold', fontsize=12)
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(summary_df['Turbine'], rotation=45, ha='right')
+    ax.legend()
+    ax.grid(axis='y', alpha=0.3)
+    
+    # Plot 4: Records vs Anomalies
+    ax = axes[1, 1]
+    ax.scatter(summary_df['Total_Records'], summary_df['IF_Anomalies'], 
+              s=100, alpha=0.6, c=summary_df['IF_Anomalies'], cmap='RdYlGn_r')
+    for idx, row in summary_df.iterrows():
+        ax.annotate(row['Turbine'], (row['Total_Records'], row['IF_Anomalies']),
+                   fontsize=8, alpha=0.7)
+    ax.set_xlabel('Total Records', fontweight='bold')
+    ax.set_ylabel('Number of Anomalies', fontweight='bold')
+    ax.set_title('Records vs Anomalies', fontweight='bold', fontsize=12)
+    ax.grid(alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(OUTPUT_DIR / 'WindFarmB_anomaly_overview.png', dpi=300, bbox_inches='tight')
+    print("✓ Saved: WindFarmB_anomaly_overview.png")
+    
+    # Visualization 2: Time series for top anomalous turbines
+    top_turbines = summary_df.nlargest(4, 'IF_Anomalies')['Turbine'].values
+    
+    fig, axes = plt.subplots(len(top_turbines), 1, figsize=(14, 4*len(top_turbines)))
+    if len(top_turbines) == 1:
+        axes = [axes]
+    
+    for idx, turbine_name in enumerate(top_turbines):
+        result = next((r for r in results if r['turbine'] == turbine_name), None)
+        if result:
+            ax = axes[idx]
+            df = result['df']
+            anomalies = result['anomalies_if']
+            
+            # Get first numeric column for visualization
+            numeric_col = result['numeric_cols'][0] if result['numeric_cols'] else None
+            if numeric_col and numeric_col in df.columns:
+                normal_idx = ~anomalies
+                anomaly_idx = anomalies
+                
+                ax.plot(df.index[normal_idx], df[numeric_col][normal_idx], 
+                       'o-', label='Normal', color='green', markersize=3, linewidth=1, alpha=0.6)
+                ax.scatter(df.index[anomaly_idx], df[numeric_col][anomaly_idx], 
+                          label='Anomaly', color='red', s=80, marker='X', zorder=5)
+                
+                ax.set_ylabel(numeric_col[:20], fontweight='bold')
+                ax.set_title(f'{turbine_name} - Anomalies: {anomalies.sum()}', fontweight='bold')
+                ax.legend(loc='best')
+                ax.grid(alpha=0.3)
+    
+    plt.xlabel('Time Index', fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(OUTPUT_DIR / 'WindFarmB_anomaly_timeseries.png', dpi=300, bbox_inches='tight')
+    print("✓ Saved: WindFarmB_anomaly_timeseries.png")
+    
+    print("\n" + "="*70)
+    print("ANALYSIS COMPLETE")
+    print("="*70)
+    plt.show()
+
+if __name__ == "__main__":
+    main()

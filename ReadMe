@@ -1,24 +1,74 @@
-# Enbridge-Competition
-Focus Areas (For Inspiration) 
-Teams are free to pursue any innovative direction, but here are three inspiring focus areas aligned with common wind turbine challenges and the dataset's strengths: 
-1. Gearbox & Bearing Health Monitoring 
-Objective: Detects precursors to gearbox bearing damage or related mechanical faults, a frequent and costly issue in turbines.
-Key Questions: 
-a. What sensor patterns (e.g., oil temperatures, vibrations) precede labeled gearbox events, and how early can deviations be flagged? b. How do normal vs. anomalous periods differ across turbines/farms, and what thresholds could trigger alerts? 
-c. How might explainable models reduce unnecessary maintenance while catching issues months ahead? 
+📊 Data Visualization & Insight Strategy
 
-2. Thermal & Electrical System Anomalies 
-Objective: Identify early signs of high temperatures (e.g., transformer cells, generators) or electrical irregularities to prevent overheating failures. 
-Key Questions: 
-a. Which temperature/pressure features show the strongest signals before fault events? 
-b. How can time-series visualizations or autoencoder reconstructions highlight subtle deviations in multi-sensor data? 
-c. What practical monitoring strategies could operators adopt based on these patterns? 
+Our project focuses on transforming complex wind turbine sensor data into clear, actionable visual insights for operators and decision-makers. Rather than only building predictive models, we prioritized how anomalies and trends are presented, ensuring that potential issues can be quickly understood and acted upon.
 
+🎯 Core Approach
 
-3. Multi-Farm & Cross-Turbine Insights for Fleet-Wide Reliability 
-Objective: Compare behaviors across onshore (Farm A) and offshore (Farms B/C) turbines to uncover generalizable anomaly patterns and farm-specific risks. 
-Key Questions: 
-a. Do fault precursors vary between onshore and offshore environments, and how can models account for this?
-b. How might focusing on a subset of turbines enable scalable anomaly detection for an entire wind farm? 
-c. What role could interactive dashboards or advanced metrics (e.g., CARE score) play in communicating fleet-level risks to 
-decision-makers? 
+We designed an interactive and intuitive visualization framework that:
+
+Highlights early warning signals in turbine performance
+Compares normal vs. anomalous behavior across time and turbines
+Enables fleet-level monitoring with drill-down capabilities
+
+Our goal was to bridge the gap between raw time-series data and real-world operational decisions.
+
+🔍 Key Visualization Features
+1. Time-Series Anomaly Tracking
+
+We display multi-sensor data (e.g., temperature, vibration, pressure) through layered time-series plots that:
+
+Show baseline vs. deviation patterns
+Highlight pre-failure trends leading up to labeled events
+Allow users to zoom into specific time windows for detailed inspection
+
+These views help answer: How early can we visually detect abnormal behavior?
+
+2. Comparative Turbine Views
+
+To support cross-turbine and cross-farm analysis, we implemented:
+
+Side-by-side comparisons of turbines under similar conditions
+Aggregated views to distinguish normal operating ranges vs. outliers
+Visual thresholds to indicate risk levels
+
+This enables users to quickly identify whether an issue is isolated or systemic.
+
+3. Thermal & Electrical Heatmaps
+
+We use heatmaps to represent temperature and electrical indicators across time:
+
+Color gradients emphasize subtle shifts and spikes
+Patterns reveal gradual overheating or irregularities
+Useful for spotting anomalies that may not be obvious in raw plots
+4. Anomaly Scoring & Alerts
+
+We visualize anomaly detection outputs (e.g., reconstruction error, statistical thresholds) through:
+
+Score timelines showing severity over time
+Clearly marked alert zones for operator attention
+Optional explainability overlays to show contributing sensors
+
+This helps reduce false alarms while ensuring early detection of critical issues.
+
+5. Fleet-Level Dashboard
+
+Our dashboard provides a high-level overview of turbine health:
+
+Summary metrics (e.g., anomaly frequency, risk scores)
+Farm-level comparisons (onshore vs. offshore)
+Drill-down capability from fleet → turbine → sensor level
+
+This allows decision-makers to monitor overall reliability at scale.
+
+💡 Design Principles
+Clarity over complexity: Visuals are designed for fast interpretation, not just technical depth
+Actionable insights: Every chart answers a practical operational question
+Scalability: The system can extend from a single turbine to an entire wind farm
+Explainability: Users can understand why a signal is flagged, not just that it is
+🚀 Impact
+
+By focusing on visualization and interpretability, our approach:
+
+Enables earlier and more confident fault detection
+Reduces unnecessary maintenance through clearer insights
+Improves communication between data scientists and turbine operators

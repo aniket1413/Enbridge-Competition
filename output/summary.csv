@@ -1,0 +1,2 @@
+total_rows,train_rows,test_rows,anomalies_detected,early_detection_rate
+1196747,1146154,239350,28431,27.3%
